@@ -1,0 +1,40 @@
+{
+  "short_name": "NewsHub",
+  "name": "NewsHub - AI News Aggregator",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "logo192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#2563eb",
+  "background_color": "#ffffff",
+  "description": "AI-powered news aggregator with customizable sources and intelligent summaries",
+  "orientation": "portrait-primary",
+  "categories": ["news", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Technology News",
+      "url": "/?category=technology",
+      "description": "View latest technology news"
+    },
+    {
+      "name": "Business News",
+      "url": "/?category=business",
+      "description": "View latest business news"
+    }
+  ]
+}
