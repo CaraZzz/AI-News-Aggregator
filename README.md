@@ -1,212 +1,221 @@
-# AI News Aggregator
+# NewsHub - AI-Powered News Aggregator
 
-A modern, AI-powered news aggregator with personalized feeds, intelligent insights, and mobile-first design. Built with React, Node.js, and OpenAI integration.
+A modern, mobile-friendly news aggregator with AI-powered summaries, personalized content, and support for custom news sources including RSS feeds, podcasts, and newsletters.
 
-## 🌟 Features
+## Features
 
-### 📰 News Aggregation
-- **Multiple Sources**: NewsAPI, Guardian, NYT, and custom sources
-- **Categories**: Technology, Business, Science, Sports, Entertainment
-- **Trending News**: Real-time popularity ranking
-- **Advanced Search**: Filter by category, date, and relevance
+- 📰 **Multiple News Sources**: Aggregates news from NewsAPI, The Guardian, and custom sources
+- 🤖 **AI-Powered Summaries**: Automatic article summarization using OpenAI GPT
+- 💬 **Integrated Chatbot**: Ask questions about news impact and analysis
+- 📱 **Mobile-Friendly PWA**: Installable on iOS/Android home screens
+- 🎨 **Apple-like Design**: Clean, minimalist UI with dark mode support
+- 🔍 **Smart Categorization**: Auto-categorizes news into relevant topics
+- 📊 **Popularity Tracking**: Sort by latest, popular, or trending articles
+- 🎙️ **Podcast Support**: Add and manage podcast feeds
+- 📧 **Newsletter Integration**: Support for newsletter sources
+- ⚡ **Real-time Updates**: Automatic news fetching every 30 minutes
+- 💾 **Offline Support**: Service worker caching for offline access
 
-### 🤖 AI-Powered Features
-- **Smart Summaries**: AI-generated article summaries
-- **Impact Analysis**: Sentiment and market impact analysis
-- **AI Chatbot**: Interactive news assistant with context awareness
-- **Trend Insights**: Pattern recognition and trend analysis
+## Tech Stack
 
-### 📱 Mobile-First Design
-- **Responsive Layout**: Optimized for all screen sizes
-- **PWA Support**: Install on iOS home screen
-- **Touch-Friendly**: Mobile-optimized interactions
-- **Offline Capability**: Basic offline functionality
+### Backend
+- Node.js + Express
+- MongoDB for data storage
+- Redis for caching
+- OpenAI API for AI features
+- RSS Parser for feed parsing
 
-### 🔧 Custom Sources
-- **RSS Feeds**: Add any RSS feed
-- **Websites**: Scrape custom news websites
-- **Podcasts**: Podcast feed integration
-- **Newsletters**: Newsletter source management
+### Frontend
+- React + TypeScript
+- Tailwind CSS for styling
+- React Query for data fetching
+- Framer Motion for animations
+- PWA support with service workers
 
-## 🚀 Quick Start
+## Prerequisites
 
-### Prerequisites
-- Node.js 16+ 
-- npm or yarn
-- API keys for news services and OpenAI
+- Node.js 18+
+- MongoDB 6+
+- Redis 6+ (optional, for caching)
+- OpenAI API key
 
-### Installation
+## Installation
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd ai-news-aggregator
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm run install-all
-   ```
-
-3. **Set up environment variables**
-   ```bash
-   cp .env.example .env
-   ```
-   
-   Edit `.env` with your API keys:
-   ```env
-   NEWS_API_KEY=your_news_api_key
-   GUARDIAN_API_KEY=your_guardian_api_key
-   NYT_API_KEY=your_nytimes_api_key
-   OPENAI_API_KEY=your_openai_api_key
-   ```
-
-4. **Start the development servers**
-   ```bash
-   npm run dev
-   ```
-
-5. **Open your browser**
-   - Frontend: http://localhost:3000
-   - Backend: http://localhost:5000
-
-## 📋 API Keys Setup
-
-### NewsAPI
-1. Visit [NewsAPI.org](https://newsapi.org/)
-2. Sign up for a free account
-3. Get your API key
-4. Add to `.env`: `NEWS_API_KEY=your_key`
-
-### Guardian API
-1. Visit [Guardian Open Platform](https://open-platform.theguardian.com/)
-2. Register for an API key
-3. Add to `.env`: `GUARDIAN_API_KEY=your_key`
-
-### NYT API
-1. Visit [NYT Developer Network](https://developer.nytimes.com/)
-2. Sign up and get an API key
-3. Add to `.env`: `NYT_API_KEY=your_key`
-
-### OpenAI
-1. Visit [OpenAI Platform](https://platform.openai.com/)
-2. Create an account and get an API key
-3. Add to `.env`: `OPENAI_API_KEY=your_key`
-
-## 🏗️ Project Structure
-
-```
-ai-news-aggregator/
-├── client/                 # React frontend
-│   ├── src/
-│   │   ├── components/     # Reusable components
-│   │   ├── contexts/       # React contexts
-│   │   ├── pages/          # Page components
-│   │   └── types/          # TypeScript types
-│   └── public/             # Static assets
-├── server/                 # Node.js backend
-│   ├── routes/             # API routes
-│   └── index.js            # Server entry point
-├── package.json            # Root package.json
-└── README.md              # This file
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd news-aggregator
 ```
 
-## 🎯 Usage
+2. Install dependencies:
+```bash
+npm run install-all
+```
 
-### Browsing News
-1. **Home**: View latest news from all sources
-2. **Categories**: Filter by news category
-3. **Trending**: See most popular stories
-4. **Search**: Find specific topics or keywords
+3. Set up environment variables:
+```bash
+cp .env.example .env
+# Edit .env with your API keys and configuration
+```
 
-### AI Features
-1. **Summarize**: Click "Summarize" on any article
-2. **Analyze**: Get AI analysis of article impact
-3. **Chat**: Use the AI chatbot for news questions
-4. **Quick Actions**: Use preset AI prompts
+4. Start MongoDB and Redis (if using Docker):
+```bash
+docker-compose up -d mongo redis
+```
+
+5. Run the development server:
+```bash
+npm run dev
+```
+
+The app will be available at:
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:5000
+
+## Configuration
+
+### Environment Variables
+
+```env
+# Server Configuration
+PORT=5000
+NODE_ENV=development
+CLIENT_URL=http://localhost:3000
+
+# Database
+MONGODB_URI=mongodb://localhost:27017/news-aggregator
+
+# OpenAI API for summaries and chatbot
+OPENAI_API_KEY=your_openai_api_key_here
+
+# News API Keys
+NEWS_API_KEY=your_newsapi_org_key_here
+GUARDIAN_API_KEY=your_guardian_api_key_here
+NYT_API_KEY=your_nyt_api_key_here
+
+# Redis for caching (optional)
+REDIS_URL=redis://localhost:6379
+```
+
+### News Categories
+
+The app supports the following news categories:
+- Technology
+- Business
+- Entertainment
+- Health
+- Science
+- Sports
+- Politics
+- World
+- Lifestyle
+
+## API Endpoints
+
+### News Endpoints
+- `GET /api/news` - Get news articles with filtering and pagination
+- `GET /api/news/trending` - Get trending articles
+- `GET /api/news/article/:id` - Get single article
+- `GET /api/news/categories` - Get available categories
+- `GET /api/news/sources` - Get news sources
+- `POST /api/news/article/:id/share` - Track article share
+
+### AI Endpoints
+- `POST /api/ai/chat` - Chat with AI about news
+- `POST /api/ai/analyze-impact` - Analyze news impact
+- `POST /api/ai/summarize` - Generate article summary
 
 ### Custom Sources
-1. Go to "Custom Sources" page
+- `GET /api/custom-sources` - Get custom sources
+- `POST /api/custom-sources` - Add new source
+- `PUT /api/custom-sources/:id` - Update source
+- `DELETE /api/custom-sources/:id` - Delete source
+- `POST /api/custom-sources/:id/test` - Test source
+
+## Deployment
+
+### Using Docker
+
+1. Build and run with Docker Compose:
+```bash
+docker-compose up -d
+```
+
+2. The app will be available on port 80 (nginx proxy)
+
+### Manual Deployment
+
+1. Build the client:
+```bash
+cd client && npm run build
+```
+
+2. Set NODE_ENV to production:
+```bash
+export NODE_ENV=production
+```
+
+3. Start the server:
+```bash
+cd server && npm start
+```
+
+### Deployment Platforms
+
+The app can be deployed to:
+- **Heroku**: Use the included Dockerfile
+- **AWS/GCP/Azure**: Use Docker or deploy directly
+- **Vercel/Netlify**: Deploy frontend separately
+- **DigitalOcean App Platform**: Use Docker deployment
+
+## Features in Detail
+
+### Custom News Sources
+
+Add your favorite news sources:
+1. Navigate to Sources page
 2. Click "Add Source"
-3. Choose source type (RSS, Website, Podcast, Newsletter)
+3. Choose type (RSS, Podcast, Newsletter, API)
 4. Enter URL and details
-5. Test and save
+5. The system will automatically fetch and categorize content
 
-### Mobile Installation
-1. Open the app on your mobile device
-2. Tap the share button in your browser
+### AI Summaries
+
+Articles are automatically summarized using GPT-3.5:
+- Key points extraction
+- Sentiment analysis
+- 2-3 sentence summary
+
+### PWA Installation
+
+On mobile devices:
+1. Open the app in Safari (iOS) or Chrome (Android)
+2. Tap the share button
 3. Select "Add to Home Screen"
-4. The app will now work like a native app
+4. The app will function like a native app
 
-## 🔧 Development
+### Chatbot Usage
 
-### Available Scripts
+Click the chat icon to:
+- Ask about news impact on specific topics
+- Get analysis of current events
+- Understand implications of news stories
 
-```bash
-# Install all dependencies
-npm run install-all
-
-# Start development servers
-npm run dev
-
-# Start only backend
-npm run server
-
-# Start only frontend
-npm run client
-
-# Build for production
-npm run build
-
-# Start production server
-npm start
-```
-
-### Adding New Features
-
-1. **Backend Routes**: Add new routes in `server/routes/`
-2. **Frontend Pages**: Create new pages in `client/src/pages/`
-3. **Components**: Add reusable components in `client/src/components/`
-4. **Types**: Update TypeScript types in `client/src/types/`
-
-## 🚀 Deployment
-
-### Frontend (Vercel/Netlify)
-```bash
-cd client
-npm run build
-# Deploy the build folder
-```
-
-### Backend (Heroku/Railway)
-```bash
-# Set environment variables in your hosting platform
-# Deploy the server folder
-```
-
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
-- NewsAPI for news data
-- OpenAI for AI capabilities
-- React and Node.js communities
-- All contributors and users
-
-## 📞 Support
-
-For support, please open an issue on GitHub or contact the development team.
-
----
-
-**Built with ❤️ for the news community**
+- News data from NewsAPI.org and The Guardian
+- AI capabilities powered by OpenAI
+- Icons from Lucide React
+- UI inspiration from Apple's design system

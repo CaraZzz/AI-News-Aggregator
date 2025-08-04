@@ -1,81 +1,100 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
-import { Helmet } from 'react-helmet-async';
-import { motion, AnimatePresence } from 'framer-motion';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from 'react-query';
+import { Toaster } from 'react-hot-toast';
+import { HelmetProvider } from 'react-helmet-async';
 
-import Header from './components/Header';
-import MobileNav from './components/MobileNav';
-import AIChatbot from './components/AIChatbot';
-import NewsFeed from './pages/NewsFeed';
-import Categories from './pages/Categories';
-import CustomSources from './pages/CustomSources';
-import Search from './pages/Search';
-import Trending from './pages/Trending';
+// Pages
+import HomePage from './pages/HomePage';
+import TrendingPage from './pages/TrendingPage';
+import CategoriesPage from './pages/CategoriesPage';
+import CategoryPage from './pages/CategoryPage';
+import ArticlePage from './pages/ArticlePage';
+import SourcesPage from './pages/SourcesPage';
+import SettingsPage from './pages/SettingsPage';
 
-import { NewsProvider } from './contexts/NewsContext';
-import { ChatProvider } from './contexts/ChatContext';
+// Components
+import Layout from './components/Layout';
+import ChatWidget from './components/ChatWidget';
 
-const App: React.FC = () => {
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const location = useLocation();
+// Contexts
+import { ThemeProvider } from './contexts/ThemeContext';
+import { PreferencesProvider } from './contexts/PreferencesContext';
+
+// Create a query client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    },
+  },
+});
+
+function App() {
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
-
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-
-    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const toggleChat = () => {
-    setIsChatOpen(!isChatOpen);
-  };
-
   return (
-    <NewsProvider>
-      <ChatProvider>
-        <div className="min-h-screen bg-gray-50">
-          <Helmet>
-            <title>News Aggregator - AI-Powered News</title>
-            <meta name="description" content="Stay informed with AI-powered news aggregation, personalized feeds, and intelligent insights." />
-            <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-          </Helmet>
+    <HelmetProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <PreferencesProvider>
+            <Router>
+              <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+                {!isOnline && (
+                  <div className="bg-yellow-500 text-white text-center py-2 text-sm">
+                    You're offline. Some features may be limited.
+                  </div>
+                )}
+                
+                <Layout>
+                  <Routes>
+                    <Route path="/" element={<HomePage />} />
+                    <Route path="/trending" element={<TrendingPage />} />
+                    <Route path="/categories" element={<CategoriesPage />} />
+                    <Route path="/category/:category" element={<CategoryPage />} />
+                    <Route path="/article/:id" element={<ArticlePage />} />
+                    <Route path="/sources" element={<SourcesPage />} />
+                    <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                  </Routes>
+                </Layout>
 
-          <Header onChatToggle={toggleChat} isMobile={isMobile} />
-          
-          <main className={`${isMobile ? 'pb-20' : 'pb-8'}`}>
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={location.pathname}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-              >
-                <Routes>
-                  <Route path="/" element={<NewsFeed />} />
-                  <Route path="/categories" element={<Categories />} />
-                  <Route path="/categories/:category" element={<NewsFeed />} />
-                  <Route path="/trending" element={<Trending />} />
-                  <Route path="/search" element={<Search />} />
-                  <Route path="/custom-sources" element={<CustomSources />} />
-                </Routes>
-              </motion.div>
-            </AnimatePresence>
-          </main>
-
-          {isMobile && <MobileNav />}
-
-          {/* AI Chatbot Sidebar */}
-          <AIChatbot isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
-        </div>
-      </ChatProvider>
-    </NewsProvider>
+                <ChatWidget />
+                
+                <Toaster
+                  position="bottom-center"
+                  toastOptions={{
+                    duration: 3000,
+                    style: {
+                      background: '#333',
+                      color: '#fff',
+                      borderRadius: '10px',
+                      padding: '16px',
+                    },
+                  }}
+                />
+              </div>
+            </Router>
+          </PreferencesProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </HelmetProvider>
   );
-};
+}
 
 export default App;
