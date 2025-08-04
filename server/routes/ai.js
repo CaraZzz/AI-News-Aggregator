@@ -1,242 +1,266 @@
 const express = require('express');
-const OpenAI = require('openai');
 const router = express.Router();
+const aiService = require('../utils/aiService');
+const NewsArticle = require('../models/NewsArticle');
 
-// Initialize OpenAI
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-// Generate AI summary for news article
-router.post('/summarize', async (req, res) => {
-  try {
-    const { title, content, url } = req.body;
-    
-    if (!title || !content) {
-      return res.status(400).json({ error: 'Title and content are required' });
-    }
-    
-    const prompt = `Please provide a concise summary of the following news article in 2-3 sentences. Focus on the key points and main implications:
-
-Title: ${title}
-Content: ${content.substring(0, 1000)}...
-
-Summary:`;
-    
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "system",
-          content: "You are a professional news summarizer. Provide clear, concise summaries that capture the essence of news articles."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      max_tokens: 150,
-      temperature: 0.3,
-    });
-    
-    const summary = completion.choices[0].message.content.trim();
-    
-    res.json({
-      summary,
-      originalTitle: title,
-      url,
-      generatedAt: new Date().toISOString()
-    });
-    
-  } catch (error) {
-    console.error('Error generating summary:', error);
-    res.status(500).json({ 
-      error: 'Failed to generate summary',
-      message: error.message 
-    });
-  }
-});
-
-// Chatbot for news-related questions
+// Chat endpoint for GPT-based chatbot
 router.post('/chat', async (req, res) => {
   try {
-    const { message, context = [], newsContext = [] } = req.body;
-    
-    if (!message) {
-      return res.status(400).json({ error: 'Message is required' });
+    const { messages, articleId, context } = req.body;
+
+    if (!messages || !Array.isArray(messages)) {
+      return res.status(400).json({ error: 'Messages array is required' });
     }
-    
-    // Build context from recent news
-    let newsContextText = '';
-    if (newsContext.length > 0) {
-      newsContextText = `\n\nRecent news context:\n${newsContext.slice(0, 3).map(article => 
-        `- ${article.title}: ${article.description?.substring(0, 200)}...`
-      ).join('\n')}`;
+
+    // If articleId is provided, include article context
+    let enrichedContext = context || {};
+    if (articleId) {
+      const article = await NewsArticle.findById(articleId);
+      if (article) {
+        enrichedContext = {
+          ...enrichedContext,
+          article: {
+            title: article.title,
+            description: article.description,
+            summary: article.aiSummary?.summary,
+            category: article.category,
+            source: article.source.name,
+            publishedAt: article.publishedAt
+          }
+        };
+      }
     }
-    
-    const systemPrompt = `You are an AI news assistant. You help users understand news, analyze trends, and answer questions about current events. 
 
-Key capabilities:
-- Analyze news impact on various sectors
-- Explain complex news topics in simple terms
-- Provide context and background information
-- Answer questions about market implications
-- Help users understand the significance of news events
-
-${newsContextText}
-
-Please provide helpful, accurate, and informative responses. If you're not sure about something, say so.`;
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "system",
-          content: systemPrompt
-        },
-        ...context.map(msg => ({
-          role: msg.role,
-          content: msg.content
-        })),
-        {
-          role: "user",
-          content: message
-        }
-      ],
-      max_tokens: 500,
-      temperature: 0.7,
-    });
-    
-    const response = completion.choices[0].message.content.trim();
-    
-    res.json({
-      response,
-      timestamp: new Date().toISOString(),
-      messageId: Date.now().toString()
-    });
-    
+    const response = await aiService.chatWithNews(messages, enrichedContext);
+    res.json(response);
   } catch (error) {
-    console.error('Error in chatbot:', error);
-    res.status(500).json({ 
-      error: 'Failed to process chat message',
-      message: error.message 
-    });
+    console.error('Chat error:', error);
+    res.status(500).json({ error: 'Failed to process chat request' });
   }
 });
 
-// Analyze news sentiment and impact
-router.post('/analyze', async (req, res) => {
+// Analyze news impact on a specific topic
+router.post('/analyze-impact', async (req, res) => {
   try {
-    const { title, content, category } = req.body;
-    
-    if (!title || !content) {
-      return res.status(400).json({ error: 'Title and content are required' });
+    const { articleId, topic } = req.body;
+
+    if (!articleId || !topic) {
+      return res.status(400).json({ error: 'Article ID and topic are required' });
     }
-    
-    const prompt = `Analyze the following news article and provide insights on:
 
-1. Sentiment (positive/negative/neutral)
-2. Potential impact on relevant sectors
-3. Key stakeholders affected
-4. Market implications (if applicable)
-5. Broader societal impact
+    const article = await NewsArticle.findById(articleId);
+    if (!article) {
+      return res.status(404).json({ error: 'Article not found' });
+    }
 
-Article:
-Title: ${title}
-Category: ${category || 'General'}
-Content: ${content.substring(0, 800)}...
-
-Please provide a structured analysis:`;
-    
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "system",
-          content: "You are a news analyst specializing in impact assessment and sentiment analysis. Provide structured, insightful analysis."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      max_tokens: 400,
-      temperature: 0.4,
-    });
-    
-    const analysis = completion.choices[0].message.content.trim();
-    
-    res.json({
-      analysis,
-      originalTitle: title,
-      category,
-      analyzedAt: new Date().toISOString()
-    });
-    
+    const analysis = await aiService.analyzeNewsImpact(article, topic);
+    res.json(analysis);
   } catch (error) {
-    console.error('Error analyzing news:', error);
-    res.status(500).json({ 
-      error: 'Failed to analyze news',
-      message: error.message 
-    });
+    console.error('Impact analysis error:', error);
+    res.status(500).json({ error: 'Failed to analyze news impact' });
   }
 });
 
-// Generate news insights and trends
-router.post('/insights', async (req, res) => {
+// Generate summary for an article
+router.post('/summarize', async (req, res) => {
   try {
-    const { articles } = req.body;
-    
-    if (!articles || !Array.isArray(articles) || articles.length === 0) {
-      return res.status(400).json({ error: 'Articles array is required' });
+    const { articleId, content, title } = req.body;
+
+    let article;
+    if (articleId) {
+      article = await NewsArticle.findById(articleId);
+      if (!article) {
+        return res.status(404).json({ error: 'Article not found' });
+      }
+    } else if (content && title) {
+      // Allow summarizing custom content
+      article = { title, content, description: content.substring(0, 200) };
+    } else {
+      return res.status(400).json({ error: 'Article ID or content with title is required' });
     }
-    
-    const articlesText = articles.slice(0, 5).map((article, index) => 
-      `${index + 1}. ${article.title}: ${article.description?.substring(0, 150)}...`
-    ).join('\n');
-    
-    const prompt = `Based on the following recent news articles, provide insights on:
 
-1. Emerging trends
-2. Common themes
-3. Potential implications
-4. What to watch for next
+    const summary = await aiService.generateSummary(article);
+    
+    // Save summary if it's a database article
+    if (articleId && article._id) {
+      article.aiSummary = {
+        ...summary,
+        generatedAt: new Date()
+      };
+      article.sentiment = summary.sentiment;
+      await article.save();
+    }
 
-Recent Articles:
-${articlesText}
-
-Please provide concise, actionable insights:`;
-    
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "system",
-          content: "You are a news trend analyst. Identify patterns, trends, and insights from news articles."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      max_tokens: 300,
-      temperature: 0.6,
-    });
-    
-    const insights = completion.choices[0].message.content.trim();
-    
-    res.json({
-      insights,
-      articlesAnalyzed: articles.length,
-      generatedAt: new Date().toISOString()
-    });
-    
+    res.json(summary);
   } catch (error) {
-    console.error('Error generating insights:', error);
-    res.status(500).json({ 
-      error: 'Failed to generate insights',
-      message: error.message 
+    console.error('Summarization error:', error);
+    res.status(500).json({ error: 'Failed to generate summary' });
+  }
+});
+
+// Extract entities from text
+router.post('/extract-entities', async (req, res) => {
+  try {
+    const { text, articleId } = req.body;
+
+    let textToAnalyze = text;
+    if (articleId && !text) {
+      const article = await NewsArticle.findById(articleId);
+      if (!article) {
+        return res.status(404).json({ error: 'Article not found' });
+      }
+      textToAnalyze = `${article.title} ${article.description} ${article.content || ''}`;
+    }
+
+    if (!textToAnalyze) {
+      return res.status(400).json({ error: 'Text or article ID is required' });
+    }
+
+    const entities = await aiService.extractEntities(textToAnalyze);
+    res.json(entities);
+  } catch (error) {
+    console.error('Entity extraction error:', error);
+    res.status(500).json({ error: 'Failed to extract entities' });
+  }
+});
+
+// Get AI-powered news recommendations based on reading history
+router.post('/recommendations', async (req, res) => {
+  try {
+    const { viewedArticleIds = [], preferences = {} } = req.body;
+
+    // Get viewed articles
+    const viewedArticles = await NewsArticle.find({
+      _id: { $in: viewedArticleIds }
+    }).lean();
+
+    if (viewedArticles.length === 0) {
+      // Return popular articles if no history
+      const popularArticles = await NewsArticle
+        .find({})
+        .sort({ 'popularity.score': -1 })
+        .limit(10)
+        .lean();
+      
+      return res.json(popularArticles);
+    }
+
+    // Analyze user preferences from viewed articles
+    const categoryCount = {};
+    const sourceCount = {};
+    const keywords = new Set();
+
+    viewedArticles.forEach(article => {
+      categoryCount[article.category] = (categoryCount[article.category] || 0) + 1;
+      sourceCount[article.source.name] = (sourceCount[article.source.name] || 0) + 1;
+      
+      // Extract keywords from titles
+      const titleWords = article.title.toLowerCase().split(/\s+/);
+      titleWords.forEach(word => {
+        if (word.length > 4) keywords.add(word);
+      });
     });
+
+    // Get top categories and sources
+    const topCategories = Object.entries(categoryCount)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([cat]) => cat);
+
+    const topSources = Object.entries(sourceCount)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([source]) => source);
+
+    // Build recommendation query
+    const recommendationQuery = {
+      _id: { $nin: viewedArticleIds },
+      $or: [
+        { category: { $in: topCategories } },
+        { 'source.name': { $in: topSources } },
+        { $text: { $search: Array.from(keywords).slice(0, 5).join(' ') } }
+      ]
+    };
+
+    // Apply user preferences
+    if (preferences.categories?.length > 0) {
+      recommendationQuery.category = { $in: preferences.categories };
+    }
+
+    const recommendations = await NewsArticle
+      .find(recommendationQuery)
+      .sort({ publishedAt: -1, 'popularity.score': -1 })
+      .limit(20)
+      .lean();
+
+    res.json({
+      recommendations,
+      basedOn: {
+        categories: topCategories,
+        sources: topSources,
+        keywords: Array.from(keywords).slice(0, 10)
+      }
+    });
+  } catch (error) {
+    console.error('Recommendation error:', error);
+    res.status(500).json({ error: 'Failed to generate recommendations' });
+  }
+});
+
+// Batch generate summaries for multiple articles
+router.post('/batch-summarize', async (req, res) => {
+  try {
+    const { articleIds, limit = 10 } = req.body;
+
+    if (!articleIds || !Array.isArray(articleIds)) {
+      return res.status(400).json({ error: 'Article IDs array is required' });
+    }
+
+    const limitedIds = articleIds.slice(0, Math.min(limit, 20)); // Max 20 at a time
+    
+    const articles = await NewsArticle.find({
+      _id: { $in: limitedIds },
+      'aiSummary.summary': { $exists: false }
+    });
+
+    const summaryPromises = articles.map(article => 
+      aiService.generateSummary(article)
+        .then(summary => ({
+          articleId: article._id,
+          summary,
+          success: true
+        }))
+        .catch(error => ({
+          articleId: article._id,
+          error: error.message,
+          success: false
+        }))
+    );
+
+    const results = await Promise.all(summaryPromises);
+
+    // Save successful summaries
+    for (const result of results) {
+      if (result.success) {
+        await NewsArticle.findByIdAndUpdate(result.articleId, {
+          aiSummary: {
+            ...result.summary,
+            generatedAt: new Date()
+          },
+          sentiment: result.summary.sentiment
+        });
+      }
+    }
+
+    res.json({
+      processed: results.length,
+      successful: results.filter(r => r.success).length,
+      failed: results.filter(r => !r.success).length,
+      results
+    });
+  } catch (error) {
+    console.error('Batch summarization error:', error);
+    res.status(500).json({ error: 'Failed to batch summarize articles' });
   }
 });
 

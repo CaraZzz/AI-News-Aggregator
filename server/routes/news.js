@@ -1,247 +1,278 @@
 const express = require('express');
-const axios = require('axios');
 const router = express.Router();
+const NewsArticle = require('../models/NewsArticle');
+const cacheManager = require('../utils/cache');
+const newsFetcher = require('../utils/newsFetcher');
+const aiService = require('../utils/aiService');
 
-// News API configuration
-const NEWS_API_KEY = process.env.NEWS_API_KEY || 'demo';
-const GUARDIAN_API_KEY = process.env.GUARDIAN_API_KEY || 'demo';
-const NYT_API_KEY = process.env.NYT_API_KEY || 'demo';
-
-// News sources configuration
-const newsSources = {
-  general: [
-    { name: 'NewsAPI', url: 'https://newsapi.org/v2/top-headlines', apiKey: NEWS_API_KEY },
-    { name: 'Guardian', url: 'https://content.guardianapis.com/search', apiKey: GUARDIAN_API_KEY },
-    { name: 'NYT', url: 'https://api.nytimes.com/svc/news/v3/content/all/all.json', apiKey: NYT_API_KEY }
-  ],
-  categories: {
-    technology: [
-      { name: 'TechCrunch', url: 'https://newsapi.org/v2/top-headlines', category: 'technology' },
-      { name: 'Ars Technica', url: 'https://feeds.arstechnica.com/arstechnica/index' }
-    ],
-    business: [
-      { name: 'Bloomberg', url: 'https://newsapi.org/v2/top-headlines', category: 'business' },
-      { name: 'Reuters Business', url: 'https://feeds.reuters.com/reuters/businessNews' }
-    ],
-    science: [
-      { name: 'Nature', url: 'https://www.nature.com/nature.rss' },
-      { name: 'Science', url: 'https://www.science.org/rss/news_current.xml' }
-    ],
-    sports: [
-      { name: 'ESPN', url: 'https://newsapi.org/v2/top-headlines', category: 'sports' }
-    ],
-    entertainment: [
-      { name: 'Variety', url: 'https://variety.com/feed' },
-      { name: 'Hollywood Reporter', url: 'https://www.hollywoodreporter.com/feed' }
-    ]
-  }
-};
-
-// Helper function to fetch news from NewsAPI
-async function fetchFromNewsAPI(category = 'general', country = 'us') {
-  try {
-    const response = await axios.get(`https://newsapi.org/v2/top-headlines`, {
-      params: {
-        country,
-        category,
-        apiKey: NEWS_API_KEY,
-        pageSize: 20
-      }
-    });
-    return response.data.articles.map(article => ({
-      ...article,
-      source: 'NewsAPI',
-      category: category,
-      publishedAt: new Date(article.publishedAt),
-      popularity: Math.floor(Math.random() * 100) // Placeholder for popularity score
-    }));
-  } catch (error) {
-    console.error('Error fetching from NewsAPI:', error.message);
-    return [];
-  }
-}
-
-// Helper function to fetch from Guardian API
-async function fetchFromGuardian(section = 'news') {
-  try {
-    const response = await axios.get('https://content.guardianapis.com/search', {
-      params: {
-        'api-key': GUARDIAN_API_KEY,
-        'section': section,
-        'show-fields': 'headline,trailText,thumbnail,lastModified',
-        'page-size': 20
-      }
-    });
-    return response.data.response.results.map(article => ({
-      title: article.webTitle,
-      description: article.fields?.trailText || '',
-      url: article.webUrl,
-      urlToImage: article.fields?.thumbnail || '',
-      source: 'Guardian',
-      category: section,
-      publishedAt: new Date(article.webPublicationDate),
-      popularity: Math.floor(Math.random() * 100)
-    }));
-  } catch (error) {
-    console.error('Error fetching from Guardian:', error.message);
-    return [];
-  }
-}
-
-// Helper function to fetch from NYT API
-async function fetchFromNYT() {
-  try {
-    const response = await axios.get('https://api.nytimes.com/svc/news/v3/content/all/all.json', {
-      params: {
-        'api-key': NYT_API_KEY
-      }
-    });
-    return response.data.results.map(article => ({
-      title: article.title,
-      description: article.abstract,
-      url: article.url,
-      urlToImage: article.multimedia?.[0]?.url ? `https://www.nytimes.com/${article.multimedia[0].url}` : '',
-      source: 'NYT',
-      category: article.section,
-      publishedAt: new Date(article.published_date),
-      popularity: Math.floor(Math.random() * 100)
-    }));
-  } catch (error) {
-    console.error('Error fetching from NYT:', error.message);
-    return [];
-  }
-}
-
-// Get all news with filtering and sorting
+// Get news articles with filtering, sorting, and pagination
 router.get('/', async (req, res) => {
   try {
-    const { category, sort = 'latest', page = 1, limit = 20 } = req.query;
-    
-    let allNews = [];
-    
-    // Fetch from different sources based on category
-    if (category && newsSources.categories[category]) {
-      // Fetch category-specific news
-      const categoryNews = await fetchFromNewsAPI(category);
-      allNews = [...categoryNews];
-    } else {
-      // Fetch general news from all sources
-      const [newsAPI, guardian, nyt] = await Promise.all([
-        fetchFromNewsAPI(),
-        fetchFromGuardian(),
-        fetchFromNYT()
-      ]);
-      allNews = [...newsAPI, ...guardian, ...nyt];
+    const {
+      category,
+      source,
+      page = 1,
+      limit = 20,
+      sort = 'latest', // latest, popular, trending
+      search,
+      startDate,
+      endDate
+    } = req.query;
+
+    // Check cache first
+    const cacheKey = cacheManager.newsKey({ category, source, page, limit, sort });
+    const cached = await cacheManager.get(cacheKey);
+    if (cached) {
+      return res.json(cached);
     }
-    
-    // Sort news based on parameter
-    if (sort === 'popularity') {
-      allNews.sort((a, b) => b.popularity - a.popularity);
-    } else {
-      allNews.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+
+    // Build query
+    const query = {};
+    if (category && category !== 'all') {
+      query.category = category;
     }
-    
-    // Pagination
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + parseInt(limit);
-    const paginatedNews = allNews.slice(startIndex, endIndex);
-    
-    res.json({
-      news: paginatedNews,
+    if (source) {
+      query['source.name'] = source;
+    }
+    if (search) {
+      query.$text = { $search: search };
+    }
+    if (startDate || endDate) {
+      query.publishedAt = {};
+      if (startDate) query.publishedAt.$gte = new Date(startDate);
+      if (endDate) query.publishedAt.$lte = new Date(endDate);
+    }
+
+    // Build sort options
+    let sortOptions = {};
+    switch (sort) {
+      case 'popular':
+        sortOptions = { 'popularity.score': -1, publishedAt: -1 };
+        break;
+      case 'trending':
+        // Get articles from last 24 hours sorted by popularity
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        query.publishedAt = { $gte: twentyFourHoursAgo };
+        sortOptions = { 'popularity.score': -1 };
+        break;
+      case 'latest':
+      default:
+        sortOptions = { publishedAt: -1 };
+    }
+
+    // Execute query with pagination
+    const skip = (page - 1) * limit;
+    const articles = await NewsArticle
+      .find(query)
+      .sort(sortOptions)
+      .skip(skip)
+      .limit(parseInt(limit))
+      .lean();
+
+    // Get total count for pagination
+    const total = await NewsArticle.countDocuments(query);
+
+    const response = {
+      articles,
       pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(allNews.length / limit),
-        totalItems: allNews.length,
-        hasNext: endIndex < allNews.length,
-        hasPrev: page > 1
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
       }
-    });
+    };
+
+    // Cache the response
+    await cacheManager.set(cacheKey, response, 300); // Cache for 5 minutes
+
+    res.json(response);
   } catch (error) {
     console.error('Error fetching news:', error);
-    res.status(500).json({ error: 'Failed to fetch news' });
+    res.status(500).json({ error: 'Failed to fetch news articles' });
   }
 });
 
-// Get news categories
-router.get('/categories', (req, res) => {
-  const categories = Object.keys(newsSources.categories).map(category => ({
-    id: category,
-    name: category.charAt(0).toUpperCase() + category.slice(1),
-    description: `Latest ${category} news and updates`
-  }));
-  
-  res.json({ categories });
-});
-
-// Get trending news (most popular in last 24 hours)
+// Get trending articles by category
 router.get('/trending', async (req, res) => {
   try {
-    const [newsAPI, guardian, nyt] = await Promise.all([
-      fetchFromNewsAPI(),
-      fetchFromGuardian(),
-      fetchFromNYT()
-    ]);
+    const { category, limit = 10 } = req.query;
+
+    // Check cache
+    const cacheKey = cacheManager.trendingKey(category);
+    const cached = await cacheManager.get(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
+    const articles = await NewsArticle.findTrending(limit, category);
     
-    const allNews = [...newsAPI, ...guardian, ...nyt];
-    
-    // Filter for last 24 hours and sort by popularity
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const recentNews = allNews.filter(article => 
-      new Date(article.publishedAt) > oneDayAgo
-    );
-    
-    const trendingNews = recentNews
-      .sort((a, b) => b.popularity - a.popularity)
-      .slice(0, 10);
-    
-    res.json({ trending: trendingNews });
+    // Cache for 15 minutes
+    await cacheManager.set(cacheKey, articles, 900);
+
+    res.json(articles);
   } catch (error) {
     console.error('Error fetching trending news:', error);
-    res.status(500).json({ error: 'Failed to fetch trending news' });
+    res.status(500).json({ error: 'Failed to fetch trending articles' });
   }
 });
 
-// Search news
-router.get('/search', async (req, res) => {
+// Get article by ID
+router.get('/article/:id', async (req, res) => {
   try {
-    const { q, category } = req.query;
-    
-    if (!q) {
-      return res.status(400).json({ error: 'Search query is required' });
+    const { id } = req.params;
+
+    // Check cache
+    const cacheKey = cacheManager.articleKey(id);
+    const cached = await cacheManager.get(cacheKey);
+    if (cached) {
+      return res.json(cached);
     }
-    
-    let searchResults = [];
-    
-    // Search in NewsAPI
-    try {
-      const newsAPIResponse = await axios.get('https://newsapi.org/v2/everything', {
-        params: {
-          q,
-          apiKey: NEWS_API_KEY,
-          sortBy: 'relevancy',
-          pageSize: 20
-        }
-      });
-      searchResults = [...searchResults, ...newsAPIResponse.data.articles];
-    } catch (error) {
-      console.error('NewsAPI search error:', error.message);
+
+    const article = await NewsArticle.findById(id);
+    if (!article) {
+      return res.status(404).json({ error: 'Article not found' });
     }
-    
-    // Filter by category if specified
-    if (category) {
-      searchResults = searchResults.filter(article => 
-        article.category?.toLowerCase() === category.toLowerCase()
-      );
-    }
-    
-    res.json({ 
-      results: searchResults,
-      query: q,
-      totalResults: searchResults.length
-    });
+
+    // Increment view count
+    article.popularity.views += 1;
+    article.calculatePopularityScore();
+    await article.save();
+
+    // Cache for 1 hour
+    await cacheManager.set(cacheKey, article, 3600);
+
+    res.json(article);
   } catch (error) {
-    console.error('Error searching news:', error);
-    res.status(500).json({ error: 'Failed to search news' });
+    console.error('Error fetching article:', error);
+    res.status(500).json({ error: 'Failed to fetch article' });
+  }
+});
+
+// Get available categories with article counts
+router.get('/categories', async (req, res) => {
+  try {
+    const categories = await NewsArticle.aggregate([
+      {
+        $group: {
+          _id: '$category',
+          count: { $sum: 1 },
+          latestArticle: { $max: '$publishedAt' }
+        }
+      },
+      {
+        $sort: { count: -1 }
+      }
+    ]);
+
+    const formattedCategories = categories.map(cat => ({
+      name: cat._id,
+      count: cat.count,
+      latestArticle: cat.latestArticle
+    }));
+
+    res.json(formattedCategories);
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    res.status(500).json({ error: 'Failed to fetch categories' });
+  }
+});
+
+// Get available news sources
+router.get('/sources', async (req, res) => {
+  try {
+    const sources = await NewsArticle.aggregate([
+      {
+        $group: {
+          _id: '$source.name',
+          count: { $sum: 1 },
+          type: { $first: '$source.type' },
+          latestArticle: { $max: '$publishedAt' }
+        }
+      },
+      {
+        $sort: { count: -1 }
+      }
+    ]);
+
+    const formattedSources = sources.map(source => ({
+      name: source._id,
+      count: source.count,
+      type: source.type,
+      latestArticle: source.latestArticle
+    }));
+
+    res.json(formattedSources);
+  } catch (error) {
+    console.error('Error fetching sources:', error);
+    res.status(500).json({ error: 'Failed to fetch sources' });
+  }
+});
+
+// Share article (increment share count)
+router.post('/article/:id/share', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const article = await NewsArticle.findById(id);
+    if (!article) {
+      return res.status(404).json({ error: 'Article not found' });
+    }
+
+    article.popularity.shares += 1;
+    article.calculatePopularityScore();
+    await article.save();
+
+    // Clear cache
+    await cacheManager.del(cacheManager.articleKey(id));
+
+    res.json({ success: true, shares: article.popularity.shares });
+  } catch (error) {
+    console.error('Error sharing article:', error);
+    res.status(500).json({ error: 'Failed to share article' });
+  }
+});
+
+// Manually trigger news fetch (admin endpoint)
+router.post('/fetch', async (req, res) => {
+  try {
+    // In production, this should be protected by authentication
+    const { source, category } = req.body;
+
+    // Run fetch in background
+    newsFetcher.fetchAllSources().catch(console.error);
+
+    res.json({ message: 'News fetch initiated' });
+  } catch (error) {
+    console.error('Error initiating fetch:', error);
+    res.status(500).json({ error: 'Failed to initiate news fetch' });
+  }
+});
+
+// Get article summary (generate if not exists)
+router.get('/article/:id/summary', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const article = await NewsArticle.findById(id);
+    if (!article) {
+      return res.status(404).json({ error: 'Article not found' });
+    }
+
+    // If summary doesn't exist, generate it
+    if (!article.aiSummary || !article.aiSummary.summary) {
+      const summary = await aiService.generateSummary(article);
+      article.aiSummary = {
+        ...summary,
+        generatedAt: new Date()
+      };
+      article.sentiment = summary.sentiment;
+      await article.save();
+    }
+
+    res.json(article.aiSummary);
+  } catch (error) {
+    console.error('Error getting summary:', error);
+    res.status(500).json({ error: 'Failed to get article summary' });
   }
 });
 

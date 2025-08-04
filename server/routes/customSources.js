@@ -1,409 +1,391 @@
 const express = require('express');
-const axios = require('axios');
-const cheerio = require('cheerio');
-const Parser = require('rss-parser');
 const router = express.Router();
+const CustomSource = require('../models/CustomSource');
+const newsFetcher = require('../utils/newsFetcher');
+const { v4: uuidv4 } = require('uuid');
 
-const parser = new Parser();
+// Get all custom sources
+router.get('/', async (req, res) => {
+  try {
+    const { type, category, isPublic, isActive } = req.query;
+    
+    const query = {};
+    if (type) query.type = type;
+    if (category) query.category = category;
+    if (isPublic !== undefined) query.isPublic = isPublic === 'true';
+    if (isActive !== undefined) query.isActive = isActive === 'true';
+    
+    const sources = await CustomSource.find(query).sort({ createdAt: -1 });
+    res.json(sources);
+  } catch (error) {
+    console.error('Error fetching custom sources:', error);
+    res.status(500).json({ error: 'Failed to fetch custom sources' });
+  }
+});
 
-// In-memory storage for custom sources (in production, use a database)
-let customSources = [];
+// Get a single custom source
+router.get('/:id', async (req, res) => {
+  try {
+    const source = await CustomSource.findById(req.params.id);
+    if (!source) {
+      return res.status(404).json({ error: 'Source not found' });
+    }
+    res.json(source);
+  } catch (error) {
+    console.error('Error fetching source:', error);
+    res.status(500).json({ error: 'Failed to fetch source' });
+  }
+});
 
-// Add custom news source
+// Create a new custom source
 router.post('/', async (req, res) => {
   try {
-    const { name, url, type, category = 'general' } = req.body;
-    
+    const {
+      name,
+      url,
+      type,
+      category = 'other',
+      description,
+      logo,
+      apiConfig,
+      fetchInterval,
+      isPublic = false,
+      metadata
+    } = req.body;
+
+    // Validate required fields
     if (!name || !url || !type) {
-      return res.status(400).json({ 
-        error: 'Name, URL, and type are required' 
-      });
+      return res.status(400).json({ error: 'Name, URL, and type are required' });
     }
-    
+
     // Validate URL
     try {
       new URL(url);
-    } catch (error) {
+    } catch (e) {
       return res.status(400).json({ error: 'Invalid URL format' });
     }
-    
+
     // Check if source already exists
-    const existingSource = customSources.find(source => 
-      source.url === url || source.name === name
-    );
-    
-    if (existingSource) {
-      return res.status(409).json({ 
-        error: 'Source already exists' 
-      });
+    const existing = await CustomSource.findOne({ url });
+    if (existing) {
+      return res.status(409).json({ error: 'Source with this URL already exists' });
     }
-    
-    // Test the source based on type
-    let testResult = null;
-    try {
-      switch (type) {
-        case 'rss':
-          testResult = await testRSSSource(url);
-          break;
-        case 'website':
-          testResult = await testWebsiteSource(url);
-          break;
-        case 'podcast':
-          testResult = await testPodcastSource(url);
-          break;
-        case 'newsletter':
-          testResult = await testNewsletterSource(url);
-          break;
-        default:
-          return res.status(400).json({ 
-            error: 'Invalid source type. Must be: rss, website, podcast, or newsletter' 
-          });
-      }
-    } catch (error) {
-      return res.status(400).json({ 
-        error: `Failed to validate source: ${error.message}` 
-      });
-    }
-    
-    const newSource = {
-      id: Date.now().toString(),
+
+    // Create new source
+    const newSource = new CustomSource({
       name,
       url,
       type,
       category,
-      status: 'active',
-      lastChecked: new Date().toISOString(),
-      testResult,
-      createdAt: new Date().toISOString()
-    };
-    
-    customSources.push(newSource);
-    
-    res.status(201).json({
-      message: 'Custom source added successfully',
-      source: newSource
+      description,
+      logo,
+      apiConfig,
+      fetchInterval,
+      isPublic,
+      metadata,
+      userId: req.user?.id || null // If you have authentication
     });
-    
+
+    await newSource.save();
+
+    // Test fetch the source
+    testFetchSource(newSource);
+
+    res.status(201).json(newSource);
   } catch (error) {
-    console.error('Error adding custom source:', error);
-    res.status(500).json({ 
-      error: 'Failed to add custom source',
-      message: error.message 
-    });
+    console.error('Error creating custom source:', error);
+    res.status(500).json({ error: 'Failed to create custom source' });
   }
 });
 
-// Get all custom sources
-router.get('/', (req, res) => {
-  const { type, category, status } = req.query;
-  
-  let filteredSources = [...customSources];
-  
-  if (type) {
-    filteredSources = filteredSources.filter(source => source.type === type);
-  }
-  
-  if (category) {
-    filteredSources = filteredSources.filter(source => source.category === category);
-  }
-  
-  if (status) {
-    filteredSources = filteredSources.filter(source => source.status === status);
-  }
-  
-  res.json({
-    sources: filteredSources,
-    total: filteredSources.length
-  });
-});
-
-// Get custom source by ID
-router.get('/:id', (req, res) => {
-  const { id } = req.params;
-  
-  const source = customSources.find(s => s.id === id);
-  
-  if (!source) {
-    return res.status(404).json({ error: 'Source not found' });
-  }
-  
-  res.json({ source });
-});
-
-// Update custom source
+// Update a custom source
 router.put('/:id', async (req, res) => {
   try {
-    const { id } = req.params;
-    const { name, url, type, category, status } = req.body;
-    
-    const sourceIndex = customSources.findIndex(s => s.id === id);
-    
-    if (sourceIndex === -1) {
-      return res.status(404).json({ error: 'Source not found' });
-    }
-    
-    const updatedSource = {
-      ...customSources[sourceIndex],
-      ...(name && { name }),
-      ...(url && { url }),
-      ...(type && { type }),
-      ...(category && { category }),
-      ...(status && { status }),
-      updatedAt: new Date().toISOString()
-    };
-    
-    customSources[sourceIndex] = updatedSource;
-    
-    res.json({
-      message: 'Source updated successfully',
-      source: updatedSource
-    });
-    
-  } catch (error) {
-    console.error('Error updating custom source:', error);
-    res.status(500).json({ 
-      error: 'Failed to update custom source',
-      message: error.message 
-    });
-  }
-});
-
-// Delete custom source
-router.delete('/:id', (req, res) => {
-  const { id } = req.params;
-  
-  const sourceIndex = customSources.findIndex(s => s.id === id);
-  
-  if (sourceIndex === -1) {
-    return res.status(404).json({ error: 'Source not found' });
-  }
-  
-  customSources.splice(sourceIndex, 1);
-  
-  res.json({ message: 'Source deleted successfully' });
-});
-
-// Fetch content from custom sources
-router.get('/:id/fetch', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { limit = 10 } = req.query;
-    
-    const source = customSources.find(s => s.id === id);
-    
+    const source = await CustomSource.findById(req.params.id);
     if (!source) {
       return res.status(404).json({ error: 'Source not found' });
     }
+
+    // Update allowed fields
+    const allowedUpdates = [
+      'name', 'description', 'logo', 'category', 
+      'apiConfig', 'fetchInterval', 'isActive', 
+      'isPublic', 'metadata'
+    ];
+
+    allowedUpdates.forEach(field => {
+      if (req.body[field] !== undefined) {
+        source[field] = req.body[field];
+      }
+    });
+
+    await source.save();
+    res.json(source);
+  } catch (error) {
+    console.error('Error updating source:', error);
+    res.status(500).json({ error: 'Failed to update source' });
+  }
+});
+
+// Delete a custom source
+router.delete('/:id', async (req, res) => {
+  try {
+    const source = await CustomSource.findByIdAndDelete(req.params.id);
+    if (!source) {
+      return res.status(404).json({ error: 'Source not found' });
+    }
+    res.json({ message: 'Source deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting source:', error);
+    res.status(500).json({ error: 'Failed to delete source' });
+  }
+});
+
+// Test a custom source
+router.post('/:id/test', async (req, res) => {
+  try {
+    const source = await CustomSource.findById(req.params.id);
+    if (!source) {
+      return res.status(404).json({ error: 'Source not found' });
+    }
+
+    let articles = [];
+    let error = null;
+
+    try {
+      switch (source.type) {
+        case 'rss':
+          articles = await newsFetcher.fetchFromRSS(source.url, source.name, source.category);
+          break;
+        case 'api':
+          articles = await newsFetcher.fetchFromCustomAPI(source);
+          break;
+        case 'podcast':
+          articles = await newsFetcher.fetchFromPodcast(source);
+          break;
+        default:
+          throw new Error(`Unsupported source type: ${source.type}`);
+      }
+
+      // Record success
+      await source.recordSuccess();
+    } catch (fetchError) {
+      error = fetchError.message;
+      await source.recordError(fetchError);
+    }
+
+    res.json({
+      success: !error,
+      articlesFound: articles.length,
+      sampleArticles: articles.slice(0, 3),
+      error,
+      source: {
+        name: source.name,
+        type: source.type,
+        isActive: source.isActive
+      }
+    });
+  } catch (error) {
+    console.error('Error testing source:', error);
+    res.status(500).json({ error: 'Failed to test source' });
+  }
+});
+
+// Validate a source URL/configuration before saving
+router.post('/validate', async (req, res) => {
+  try {
+    const { url, type, apiConfig } = req.body;
+
+    if (!url || !type) {
+      return res.status(400).json({ error: 'URL and type are required' });
+    }
+
+    // Validate URL format
+    try {
+      new URL(url);
+    } catch (e) {
+      return res.status(400).json({ 
+        valid: false, 
+        error: 'Invalid URL format' 
+      });
+    }
+
+    // Check if already exists
+    const existing = await CustomSource.findOne({ url });
+    if (existing) {
+      return res.json({
+        valid: false,
+        error: 'Source already exists',
+        existingSource: {
+          id: existing._id,
+          name: existing.name,
+          type: existing.type
+        }
+      });
+    }
+
+    // Test fetch based on type
+    let testResult = { valid: true };
     
+    try {
+      switch (type) {
+        case 'rss':
+          const articles = await newsFetcher.fetchFromRSS(url, 'Test Source');
+          testResult.articlesFound = articles.length;
+          testResult.sampleArticle = articles[0] || null;
+          break;
+          
+        case 'api':
+          if (!apiConfig) {
+            testResult.valid = false;
+            testResult.error = 'API configuration is required for API sources';
+          } else {
+            // Basic API validation
+            const response = await axios({
+              method: apiConfig.method || 'GET',
+              url,
+              headers: apiConfig.headers ? Object.fromEntries(apiConfig.headers) : {},
+              params: apiConfig.params ? Object.fromEntries(apiConfig.params) : {},
+              timeout: 10000
+            });
+            testResult.statusCode = response.status;
+            testResult.hasData = !!response.data;
+          }
+          break;
+          
+        case 'podcast':
+          // Podcasts are RSS feeds with enclosures
+          const episodes = await newsFetcher.fetchFromPodcast({ url });
+          testResult.episodesFound = episodes.length;
+          testResult.sampleEpisode = episodes[0] || null;
+          break;
+          
+        default:
+          testResult.valid = false;
+          testResult.error = `Unsupported source type: ${type}`;
+      }
+    } catch (error) {
+      testResult.valid = false;
+      testResult.error = error.message;
+    }
+
+    res.json(testResult);
+  } catch (error) {
+    console.error('Error validating source:', error);
+    res.status(500).json({ error: 'Failed to validate source' });
+  }
+});
+
+// Get suggested sources based on category
+router.get('/suggestions/:category', async (req, res) => {
+  try {
+    const { category } = req.params;
+    
+    const suggestions = {
+      technology: [
+        {
+          name: 'TechCrunch',
+          url: 'https://techcrunch.com/feed/',
+          type: 'rss',
+          description: 'Latest technology news and analysis'
+        },
+        {
+          name: 'The Verge',
+          url: 'https://www.theverge.com/rss/index.xml',
+          type: 'rss',
+          description: 'Technology, science, art, and culture'
+        },
+        {
+          name: 'Ars Technica',
+          url: 'https://feeds.arstechnica.com/arstechnica/index',
+          type: 'rss',
+          description: 'Original news and reviews'
+        }
+      ],
+      business: [
+        {
+          name: 'Reuters Business',
+          url: 'https://feeds.reuters.com/reuters/businessNews',
+          type: 'rss',
+          description: 'Breaking business news'
+        },
+        {
+          name: 'Bloomberg',
+          url: 'https://feeds.bloomberg.com/markets/news.rss',
+          type: 'rss',
+          description: 'Global business and financial news'
+        }
+      ],
+      science: [
+        {
+          name: 'Nature News',
+          url: 'https://www.nature.com/nature.rss',
+          type: 'rss',
+          description: 'Latest research from Nature'
+        },
+        {
+          name: 'Science Daily',
+          url: 'https://www.sciencedaily.com/rss/all.xml',
+          type: 'rss',
+          description: 'Breaking science news'
+        }
+      ],
+      podcasts: [
+        {
+          name: 'The Daily',
+          url: 'https://feeds.simplecast.com/54nAGcIl',
+          type: 'podcast',
+          description: 'Daily news podcast from The New York Times'
+        },
+        {
+          name: 'NPR News Now',
+          url: 'https://feeds.npr.org/500005/podcast.xml',
+          type: 'podcast',
+          description: 'NPR news updates every hour'
+        }
+      ]
+    };
+
+    const categorySuggestions = suggestions[category] || [];
+    const podcastSuggestions = category !== 'podcasts' ? suggestions.podcasts.slice(0, 2) : [];
+
+    res.json({
+      category,
+      suggestions: [...categorySuggestions, ...podcastSuggestions]
+    });
+  } catch (error) {
+    console.error('Error getting suggestions:', error);
+    res.status(500).json({ error: 'Failed to get suggestions' });
+  }
+});
+
+// Helper function to test fetch a source in the background
+async function testFetchSource(source) {
+  try {
     let articles = [];
     
     switch (source.type) {
       case 'rss':
-        articles = await fetchRSSContent(source.url, limit);
+        articles = await newsFetcher.fetchFromRSS(source.url, source.name, source.category);
         break;
-      case 'website':
-        articles = await fetchWebsiteContent(source.url, limit);
+      case 'api':
+        articles = await newsFetcher.fetchFromCustomAPI(source);
         break;
       case 'podcast':
-        articles = await fetchPodcastContent(source.url, limit);
+        articles = await newsFetcher.fetchFromPodcast(source);
         break;
-      case 'newsletter':
-        articles = await fetchNewsletterContent(source.url, limit);
-        break;
-      default:
-        return res.status(400).json({ error: 'Unsupported source type' });
     }
-    
-    // Update last checked time
-    source.lastChecked = new Date().toISOString();
-    
-    res.json({
-      source: source.name,
-      articles,
-      fetchedAt: new Date().toISOString()
-    });
-    
-  } catch (error) {
-    console.error('Error fetching from custom source:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch content',
-      message: error.message 
-    });
-  }
-});
 
-// Test RSS source
-async function testRSSSource(url) {
-  try {
-    const feed = await parser.parseURL(url);
-    return {
-      valid: true,
-      title: feed.title,
-      description: feed.description,
-      itemCount: feed.items?.length || 0
-    };
-  } catch (error) {
-    throw new Error(`Invalid RSS feed: ${error.message}`);
-  }
-}
-
-// Test website source
-async function testWebsiteSource(url) {
-  try {
-    const response = await axios.get(url, {
-      timeout: 10000,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; NewsAggregator/1.0)'
-      }
-    });
-    
-    const $ = cheerio.load(response.data);
-    const title = $('title').text() || $('h1').first().text();
-    
-    return {
-      valid: true,
-      title: title.substring(0, 100),
-      status: response.status
-    };
-  } catch (error) {
-    throw new Error(`Website not accessible: ${error.message}`);
-  }
-}
-
-// Test podcast source
-async function testPodcastSource(url) {
-  try {
-    const response = await axios.get(url, { timeout: 10000 });
-    const $ = cheerio.load(response.data);
-    
-    // Look for podcast-specific elements
-    const hasPodcastElements = $('rss, [type="application/rss+xml"], [type="application/atom+xml"]').length > 0;
-    
-    return {
-      valid: hasPodcastElements,
-      type: 'podcast',
-      status: response.status
-    };
-  } catch (error) {
-    throw new Error(`Podcast source not accessible: ${error.message}`);
-  }
-}
-
-// Test newsletter source
-async function testNewsletterSource(url) {
-  try {
-    const response = await axios.get(url, { timeout: 10000 });
-    const $ = cheerio.load(response.data);
-    
-    // Look for newsletter-specific elements
-    const hasNewsletterElements = $('form[action*="subscribe"], .newsletter, [class*="newsletter"]').length > 0;
-    
-    return {
-      valid: hasNewsletterElements,
-      type: 'newsletter',
-      status: response.status
-    };
-  } catch (error) {
-    throw new Error(`Newsletter source not accessible: ${error.message}`);
-  }
-}
-
-// Fetch RSS content
-async function fetchRSSContent(url, limit) {
-  try {
-    const feed = await parser.parseURL(url);
-    return feed.items.slice(0, limit).map(item => ({
-      title: item.title,
-      description: item.contentSnippet || item.content,
-      url: item.link,
-      publishedAt: item.pubDate ? new Date(item.pubDate) : new Date(),
-      author: item.creator || item.author,
-      source: 'RSS'
-    }));
-  } catch (error) {
-    throw new Error(`Failed to fetch RSS content: ${error.message}`);
-  }
-}
-
-// Fetch website content
-async function fetchWebsiteContent(url, limit) {
-  try {
-    const response = await axios.get(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; NewsAggregator/1.0)'
-      }
-    });
-    
-    const $ = cheerio.load(response.data);
-    const articles = [];
-    
-    // Common selectors for news articles
-    const selectors = [
-      'article',
-      '.article',
-      '.post',
-      '.entry',
-      '[class*="article"]',
-      '[class*="post"]'
-    ];
-    
-    for (const selector of selectors) {
-      const elements = $(selector).slice(0, limit);
-      
-      elements.each((i, element) => {
-        const $el = $(element);
-        const title = $el.find('h1, h2, h3').first().text().trim();
-        const description = $el.find('p').first().text().trim();
-        const link = $el.find('a').first().attr('href');
-        
-        if (title && link) {
-          articles.push({
-            title,
-            description,
-            url: new URL(link, url).href,
-            publishedAt: new Date(),
-            source: 'Website'
-          });
-        }
-      });
-      
-      if (articles.length >= limit) break;
+    if (articles.length > 0) {
+      await source.recordSuccess();
+      await newsFetcher.saveArticles(articles);
+    } else {
+      throw new Error('No articles found');
     }
-    
-    return articles.slice(0, limit);
   } catch (error) {
-    throw new Error(`Failed to fetch website content: ${error.message}`);
+    console.error(`Error test fetching source ${source.name}:`, error);
+    await source.recordError(error);
   }
-}
-
-// Fetch podcast content
-async function fetchPodcastContent(url, limit) {
-  try {
-    const feed = await parser.parseURL(url);
-    return feed.items.slice(0, limit).map(item => ({
-      title: item.title,
-      description: item.contentSnippet || item.content,
-      url: item.link,
-      publishedAt: item.pubDate ? new Date(item.pubDate) : new Date(),
-      duration: item.itunes?.duration,
-      source: 'Podcast'
-    }));
-  } catch (error) {
-    throw new Error(`Failed to fetch podcast content: ${error.message}`);
-  }
-}
-
-// Fetch newsletter content
-async function fetchNewsletterContent(url, limit) {
-  // For newsletters, we typically can't scrape content directly
-  // This would require integration with newsletter services
-  return [{
-    title: 'Newsletter Content',
-    description: 'Newsletter content requires integration with newsletter services',
-    url,
-    publishedAt: new Date(),
-    source: 'Newsletter'
-  }];
 }
 
 module.exports = router;
