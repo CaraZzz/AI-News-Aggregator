@@ -78,30 +78,6 @@ export default function CustomSourceManager({ customSources, onSave, onClose }: 
     onClose();
   };
 
-  const addHeader = () => {
-    setNewSource({
-      ...newSource,
-      headers: { ...newSource.headers, '': '' }
-    });
-  };
-
-  const updateHeader = (oldKey: string, newKey: string, value: string) => {
-    const headers = { ...newSource.headers };
-    if (oldKey !== newKey && oldKey in headers) {
-      delete headers[oldKey];
-    }
-    if (newKey.trim()) {
-      headers[newKey] = value;
-    }
-    setNewSource({ ...newSource, headers });
-  };
-
-  const removeHeader = (key: string) => {
-    const headers = { ...newSource.headers };
-    delete headers[key];
-    setNewSource({ ...newSource, headers });
-  };
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
@@ -186,65 +162,6 @@ export default function CustomSourceManager({ customSources, onSave, onClose }: 
                       />
                     </div>
                   </div>
-
-                  {/* API Key (for API sources) */}
-                  {newSource.type === 'api' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        API Key (optional)
-                      </label>
-                      <input
-                        type="password"
-                        value={newSource.apiKey}
-                        onChange={(e) => setNewSource({ ...newSource, apiKey: e.target.value })}
-                        placeholder="Enter API key if required"
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
-                  )}
-
-                  {/* Custom Headers (for API sources) */}
-                  {newSource.type === 'api' && (
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <label className="block text-sm font-medium text-gray-700">
-                          Custom Headers (optional)
-                        </label>
-                        <button
-                          onClick={addHeader}
-                          className="text-sm text-blue-600 hover:text-blue-800"
-                        >
-                          + Add Header
-                        </button>
-                      </div>
-                      <div className="space-y-2">
-                        {Object.entries(newSource.headers).map(([key, value], index) => (
-                          <div key={index} className="flex space-x-2">
-                            <input
-                              type="text"
-                              value={key}
-                              onChange={(e) => updateHeader(key, e.target.value, value)}
-                              placeholder="Header name"
-                              className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            />
-                            <input
-                              type="text"
-                              value={value}
-                              onChange={(e) => updateHeader(key, key, e.target.value)}
-                              placeholder="Header value"
-                              className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            />
-                            <button
-                              onClick={() => removeHeader(key)}
-                              className="text-red-600 hover:text-red-800"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
 
                   <div className="flex space-x-3">
                     <button
