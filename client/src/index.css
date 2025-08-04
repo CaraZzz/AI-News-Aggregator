@@ -5,81 +5,129 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
   }
   
   body {
     @apply bg-gray-50 text-gray-900;
     font-feature-settings: 'rlig' 1, 'calt' 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    touch-action: manipulation;
   }
   
   * {
     @apply border-gray-200;
   }
+
+  /* Apple-like typography scale */
+  .text-title1 { @apply text-3xl font-bold leading-tight; }
+  .text-title2 { @apply text-2xl font-semibold leading-tight; }
+  .text-title3 { @apply text-xl font-semibold leading-snug; }
+  .text-headline { @apply text-lg font-semibold leading-snug; }
+  .text-body { @apply text-base leading-relaxed; }
+  .text-callout { @apply text-base font-medium leading-relaxed; }
+  .text-subhead { @apply text-sm font-medium leading-relaxed; }
+  .text-footnote { @apply text-sm leading-relaxed; }
+  .text-caption1 { @apply text-xs font-medium leading-relaxed; }
+  .text-caption2 { @apply text-xs leading-relaxed; }
 }
 
 @layer components {
+  /* Button System - Apple-inspired */
   .btn-primary {
-    @apply bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+    @apply bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-blue-200 shadow-sm hover:shadow-md;
   }
   
   .btn-secondary {
-    @apply bg-gray-200 hover:bg-gray-300 text-gray-900 font-medium py-2 px-4 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2;
+    @apply bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-900 font-semibold py-3 px-6 rounded-xl transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-gray-200;
   }
   
-  .btn-outline {
-    @apply border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+  .btn-ghost {
+    @apply text-blue-600 hover:bg-blue-50 active:bg-blue-100 font-semibold py-3 px-6 rounded-xl transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-blue-200;
+  }
+
+  .btn-small {
+    @apply py-2 px-4 text-sm rounded-lg;
+  }
+
+  .btn-large {
+    @apply py-4 px-8 text-lg rounded-2xl;
   }
   
+  /* Card System */
   .card {
-    @apply bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden;
+    @apply bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden;
   }
   
   .card-hover {
-    @apply card hover:shadow-md transition-shadow duration-200;
+    @apply card hover:shadow-lg hover:border-gray-200 transition-all duration-300 hover:-translate-y-1;
+  }
+
+  .card-interactive {
+    @apply card-hover active:scale-[0.98] cursor-pointer;
   }
   
+  /* Input Fields */
   .input-field {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+    @apply w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-200 focus:border-blue-500 bg-gray-50 focus:bg-white transition-all duration-200;
+  }
+
+  .search-field {
+    @apply input-field pl-12 bg-gray-100 border-0 focus:bg-white focus:ring-2;
   }
   
+  /* News Cards */
   .news-card {
-    @apply card-hover p-4 space-y-3;
+    @apply card-interactive p-0 space-y-0 overflow-hidden;
+  }
+
+  .news-card-mobile {
+    @apply news-card mb-4 mx-4;
+  }
+
+  .news-card-desktop {
+    @apply news-card;
   }
   
   .news-image {
-    @apply w-full h-48 object-cover rounded-lg;
+    @apply w-full h-48 sm:h-56 object-cover;
+  }
+
+  .news-content {
+    @apply p-4 sm:p-6 space-y-3;
   }
   
+  /* Category Badges */
   .category-badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide;
   }
   
-  .category-tech {
-    @apply bg-blue-100 text-blue-800;
+  .category-tech { @apply bg-blue-100 text-blue-800; }
+  .category-business { @apply bg-green-100 text-green-800; }
+  .category-science { @apply bg-purple-100 text-purple-800; }
+  .category-sports { @apply bg-orange-100 text-orange-800; }
+  .category-entertainment { @apply bg-pink-100 text-pink-800; }
+  .category-general { @apply bg-gray-100 text-gray-800; }
+  .category-health { @apply bg-red-100 text-red-800; }
+  .category-world { @apply bg-indigo-100 text-indigo-800; }
+  
+  /* Layout Components */
+  .container-safe {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  .section-spacing {
+    @apply py-8 sm:py-12 lg:py-16;
+  }
+
+  .section-spacing-small {
+    @apply py-6 sm:py-8;
   }
   
-  .category-business {
-    @apply bg-green-100 text-green-800;
-  }
-  
-  .category-science {
-    @apply bg-purple-100 text-purple-800;
-  }
-  
-  .category-sports {
-    @apply bg-orange-100 text-orange-800;
-  }
-  
-  .category-entertainment {
-    @apply bg-pink-100 text-pink-800;
-  }
-  
-  .category-general {
-    @apply bg-gray-100 text-gray-800;
-  }
-  
+  /* Sidebar */
   .sidebar {
-    @apply fixed right-0 top-0 h-full w-80 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-50;
+    @apply fixed right-0 top-0 h-full w-full sm:w-96 bg-white shadow-2xl transform transition-transform duration-500 ease-out z-50;
   }
   
   .sidebar-open {
@@ -90,48 +138,122 @@
     @apply translate-x-full;
   }
   
+  /* Mobile Navigation */
   .mobile-nav {
-    @apply fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 z-40;
+    @apply fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-gray-200 px-2 py-2 z-40 safe-area-bottom;
   }
   
   .mobile-nav-item {
-    @apply flex flex-col items-center space-y-1 text-xs;
+    @apply flex flex-col items-center justify-center space-y-1 text-xs font-medium py-2 px-1 rounded-xl transition-all duration-200 min-h-[60px] active:scale-95;
+  }
+
+  .mobile-nav-item:active {
+    @apply bg-gray-100;
   }
   
   .mobile-nav-icon {
-    @apply w-6 h-6;
+    @apply w-6 h-6 transition-colors duration-200;
   }
   
   .mobile-nav-text {
-    @apply text-gray-600;
+    @apply text-gray-600 transition-colors duration-200;
   }
   
   .mobile-nav-active {
-    @apply text-primary-600;
+    @apply text-blue-600;
+  }
+
+  .mobile-nav-active .mobile-nav-icon {
+    @apply text-blue-600;
   }
   
+  /* Chat Interface */
   .chat-message {
-    @apply p-3 rounded-lg max-w-xs;
+    @apply p-4 rounded-2xl max-w-[85%] break-words;
   }
   
   .chat-user {
-    @apply chat-message bg-primary-600 text-white ml-auto;
+    @apply chat-message bg-blue-600 text-white ml-auto rounded-br-md;
   }
   
   .chat-bot {
-    @apply chat-message bg-gray-100 text-gray-900;
+    @apply chat-message bg-gray-100 text-gray-900 rounded-bl-md;
+  }
+
+  .chat-input {
+    @apply flex-1 px-4 py-3 border-0 rounded-xl bg-gray-100 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none max-h-32;
   }
   
+  /* Loading States */
   .loading-skeleton {
-    @apply animate-pulse bg-gray-200 rounded;
+    @apply animate-pulse bg-gray-200 rounded-xl;
+  }
+
+  .loading-shimmer {
+    @apply relative overflow-hidden;
+  }
+
+  .loading-shimmer::after {
+    @apply absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent;
+    content: '';
+    animation: shimmer 2s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
   }
   
-  .fade-in {
-    @apply animate-fade-in;
+  /* Header Styles */
+  .header {
+    @apply sticky top-0 bg-white/95 backdrop-blur-lg border-b border-gray-200 z-30 safe-area-top;
+  }
+
+  .header-content {
+    @apply container-safe py-4 flex items-center justify-between;
+  }
+
+  .logo {
+    @apply text-2xl font-bold text-gray-900 flex items-center space-x-2;
+  }
+
+  .logo-icon {
+    @apply w-8 h-8 text-blue-600;
   }
   
-  .slide-up {
-    @apply animate-slide-up;
+  /* Filter and Sort Controls */
+  .filter-chip {
+    @apply inline-flex items-center px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 cursor-pointer;
+  }
+
+  .filter-chip-active {
+    @apply bg-blue-600 text-white shadow-lg;
+  }
+
+  .filter-chip-inactive {
+    @apply bg-gray-100 text-gray-700 hover:bg-gray-200;
+  }
+
+  /* Pull to Refresh */
+  .pull-to-refresh {
+    @apply flex items-center justify-center py-4 text-gray-500;
+  }
+
+  /* Empty States */
+  .empty-state {
+    @apply text-center py-16 px-8;
+  }
+
+  .empty-state-icon {
+    @apply w-16 h-16 text-gray-400 mx-auto mb-4;
+  }
+
+  .empty-state-title {
+    @apply text-xl font-semibold text-gray-900 mb-2;
+  }
+
+  .empty-state-description {
+    @apply text-gray-600 max-w-md mx-auto;
   }
 }
 
@@ -156,15 +278,40 @@
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom);
   }
+
+  .safe-area-left {
+    padding-left: env(safe-area-inset-left);
+  }
+
+  .safe-area-right {
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* Touch-friendly sizing */
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+
+  /* Backdrop blur utilities */
+  .backdrop-blur-ios {
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  /* Gesture utilities */
+  .swipe-indicator {
+    @apply absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400;
+  }
 }
 
-/* Custom scrollbar */
+/* Enhanced scrollbar for desktop */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-gray-100;
+  @apply bg-transparent;
 }
 
 ::-webkit-scrollbar-thumb {
@@ -175,15 +322,97 @@
   @apply bg-gray-400;
 }
 
-/* Focus styles for accessibility */
-.focus-visible:focus {
-  @apply outline-none ring-2 ring-primary-500 ring-offset-2;
+::-webkit-scrollbar-corner {
+  @apply bg-transparent;
 }
 
-/* Dark mode support (if needed) */
+/* Focus styles for accessibility */
+.focus-visible:focus {
+  @apply outline-none ring-4 ring-blue-200 ring-offset-0;
+}
+
+/* Selection styles */
+::selection {
+  @apply bg-blue-200 text-blue-900;
+}
+
+/* Enhanced animations */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { 
+    opacity: 0; 
+    transform: translateY(20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+@keyframes slide-down {
+  from { 
+    opacity: 0; 
+    transform: translateY(-20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+@keyframes scale-in {
+  from { 
+    opacity: 0; 
+    transform: scale(0.95); 
+  }
+  to { 
+    opacity: 1; 
+    transform: scale(1); 
+  }
+}
+
+.animate-fade-in { animation: fade-in 0.3s ease-out; }
+.animate-slide-up { animation: slide-up 0.4s ease-out; }
+.animate-slide-down { animation: slide-down 0.4s ease-out; }
+.animate-scale-in { animation: scale-in 0.3s ease-out; }
+
+/* Dark mode support */
 @media (prefers-color-scheme: dark) {
   .dark-mode {
     @apply bg-gray-900 text-gray-100;
+  }
+  
+  .dark-mode .card {
+    @apply bg-gray-800 border-gray-700;
+  }
+  
+  .dark-mode .input-field {
+    @apply bg-gray-800 border-gray-700 text-gray-100;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .card {
+    @apply border-2 border-gray-400;
+  }
+  
+  .btn-primary {
+    @apply border-2 border-blue-800;
   }
 }
 
@@ -191,5 +420,31 @@
 @media print {
   .no-print {
     display: none !important;
+  }
+  
+  .print-break {
+    page-break-before: always;
+  }
+  
+  body {
+    @apply text-black bg-white;
+  }
+}
+
+/* iOS specific fixes */
+@supports (-webkit-touch-callout: none) {
+  .mobile-nav {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
+  }
+  
+  .input-field {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+}
+
+/* Android specific fixes */
+@media screen and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) {
+  .mobile-nav {
+    @apply pb-6;
   }
 }

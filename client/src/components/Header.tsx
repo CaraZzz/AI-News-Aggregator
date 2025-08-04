@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, 
   MessageCircle, 
   Menu, 
   X, 
-  TrendingUp, 
-  Grid3X3,
-  Plus
+  Newspaper,
+  ArrowLeft
 } from 'lucide-react';
 import { useNews } from '../contexts/NewsContext';
 
@@ -20,7 +19,6 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ onChatToggle, isMobile }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { searchNews } = useNews();
@@ -34,173 +32,161 @@ const Header: React.FC<HeaderProps> = ({ onChatToggle, isMobile }) => {
     }
   };
 
-  const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(!isMobileMenuOpen);
+  const toggleSearch = () => {
+    setIsSearchOpen(!isSearchOpen);
+    if (!isSearchOpen) {
+      // Focus search input after animation
+      setTimeout(() => {
+        const searchInput = document.getElementById('search-input');
+        if (searchInput) {
+          searchInput.focus();
+        }
+      }, 100);
+    }
   };
 
-  const closeMobileMenu = () => {
-    setIsMobileMenuOpen(false);
+  const closeSearch = () => {
+    setIsSearchOpen(false);
+    setSearchQuery('');
   };
-
-  const navigationItems = [
-    { name: 'Home', path: '/', icon: Grid3X3 },
-    { name: 'Trending', path: '/trending', icon: TrendingUp },
-    { name: 'Categories', path: '/categories', icon: Grid3X3 },
-    { name: 'Custom Sources', path: '/custom-sources', icon: Plus },
-  ];
 
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-30">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2">
+    <header className="header">
+      <div className="header-content">
+        <AnimatePresence mode="wait">
+          {isSearchOpen && isMobile ? (
+            // Mobile Search Mode
             <motion.div
-              whileHover={{ scale: 1.05 }}
-              className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center"
+              key="mobile-search"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+              className="flex items-center w-full"
             >
-              <span className="text-white font-bold text-sm">N</span>
-            </motion.div>
-            <span className="text-xl font-bold text-gray-900 hidden sm:block">
-              News Aggregator
-            </span>
-          </Link>
-
-          {/* Desktop Navigation */}
-          {!isMobile && (
-            <nav className="hidden md:flex space-x-8">
-              {navigationItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = location.pathname === item.path;
-                
-                return (
-                  <Link
-                    key={item.name}
-                    to={item.path}
-                    className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'text-primary-600 bg-primary-50'
-                        : 'text-gray-600 hover:text-primary-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span>{item.name}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-          )}
-
-          {/* Search and Actions */}
-          <div className="flex items-center space-x-4">
-            {/* Search */}
-            {!isMobile && (
-              <form onSubmit={handleSearch} className="relative">
+              <button
+                onClick={closeSearch}
+                className="touch-target mr-3 p-2 rounded-xl hover:bg-gray-100 active:bg-gray-200 transition-colors"
+                aria-label="Close search"
+              >
+                <ArrowLeft className="w-6 h-6 text-gray-600" />
+              </button>
+              
+              <form onSubmit={handleSearch} className="flex-1">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
+                    id="search-input"
                     type="text"
-                    placeholder="Search news..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 pr-4 py-2 w-64 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    placeholder="Search news..."
+                    className="search-field w-full pr-4"
+                    autoComplete="off"
+                    autoFocus
                   />
                 </div>
               </form>
-            )}
-
-            {/* Mobile Search Toggle */}
-            {isMobile && (
-              <button
-                onClick={() => setIsSearchOpen(!isSearchOpen)}
-                className="p-2 text-gray-600 hover:text-primary-600"
-              >
-                <Search className="w-5 h-5" />
-              </button>
-            )}
-
-            {/* Chat Toggle */}
-            <button
-              onClick={onChatToggle}
-              className="p-2 text-gray-600 hover:text-primary-600 hover:bg-gray-50 rounded-lg transition-colors"
-              title="AI Chat Assistant"
+            </motion.div>
+          ) : (
+            // Normal Header Mode
+            <motion.div
+              key="normal-header"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+              className="flex items-center justify-between w-full"
             >
-              <MessageCircle className="w-5 h-5" />
-            </button>
+              {/* Logo */}
+              <Link to="/" className="logo">
+                <Newspaper className="logo-icon" />
+                <span className="hidden sm:block">News Aggregator</span>
+                <span className="sm:hidden">News</span>
+              </Link>
 
-            {/* Mobile Menu Toggle */}
-            {isMobile && (
-              <button
-                onClick={toggleMobileMenu}
-                className="p-2 text-gray-600 hover:text-primary-600"
-              >
-                {isMobileMenuOpen ? (
-                  <X className="w-5 h-5" />
-                ) : (
-                  <Menu className="w-5 h-5" />
+              {/* Desktop Search */}
+              {!isMobile && (
+                <div className="flex-1 max-w-md mx-8">
+                  <form onSubmit={handleSearch}>
+                    <div className="relative">
+                      <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search news..."
+                        className="search-field w-full pr-4"
+                        autoComplete="off"
+                      />
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex items-center space-x-2">
+                {/* Mobile Search Toggle */}
+                {isMobile && (
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    onClick={toggleSearch}
+                    className="touch-target p-2 rounded-xl hover:bg-gray-100 active:bg-gray-200 transition-colors"
+                    aria-label="Search"
+                  >
+                    <Search className="w-6 h-6 text-gray-600" />
+                  </motion.button>
                 )}
-              </button>
-            )}
-          </div>
-        </div>
 
-        {/* Mobile Search Bar */}
-        {isMobile && isSearchOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="pb-4"
-          >
-            <form onSubmit={handleSearch} className="relative">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                {/* Chat Toggle */}
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onClick={onChatToggle}
+                  className="touch-target p-2 rounded-xl hover:bg-gray-100 active:bg-gray-200 transition-colors relative"
+                  aria-label="Toggle AI Chat"
+                >
+                  <MessageCircle className="w-6 h-6 text-gray-600" />
+                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-600 rounded-full animate-pulse" />
+                </motion.button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Desktop Search Overlay */}
+      {!isMobile && isSearchOpen && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          className="absolute top-full left-0 right-0 bg-white border-b border-gray-200 shadow-lg"
+        >
+          <div className="container-safe py-4">
+            <form onSubmit={handleSearch}>
+              <div className="relative max-w-2xl mx-auto">
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-6 h-6 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search news..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  placeholder="Search for news, topics, or sources..."
+                  className="w-full pl-14 pr-12 py-4 text-lg border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-200 focus:border-blue-500 bg-gray-50 focus:bg-white transition-all duration-200"
+                  autoComplete="off"
                   autoFocus
                 />
+                <button
+                  type="button"
+                  onClick={() => setIsSearchOpen(false)}
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 p-1 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-400" />
+                </button>
               </div>
             </form>
-          </motion.div>
-        )}
-
-        {/* Mobile Menu */}
-        {isMobile && isMobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="border-t border-gray-200 py-4"
-          >
-            <nav className="space-y-2">
-              {navigationItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = location.pathname === item.path;
-                
-                return (
-                  <Link
-                    key={item.name}
-                    to={item.path}
-                    onClick={closeMobileMenu}
-                    className={`flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'text-primary-600 bg-primary-50'
-                        : 'text-gray-600 hover:text-primary-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span>{item.name}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-          </motion.div>
-        )}
-      </div>
+          </div>
+        </motion.div>
+      )}
     </header>
   );
 };

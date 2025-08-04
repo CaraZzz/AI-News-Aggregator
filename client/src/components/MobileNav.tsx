@@ -21,30 +21,41 @@ const MobileNav: React.FC = () => {
   ];
 
   return (
-    <nav className="mobile-nav safe-area-bottom">
-      <div className="flex justify-around items-center">
+    <nav className="mobile-nav">
+      <div className="flex justify-around items-center px-2">
         {navigationItems.map((item) => {
           const Icon = item.icon;
-          const isActive = location.pathname === item.path;
+          const isActive = location.pathname === item.path || 
+            (item.path === '/categories' && location.pathname.startsWith('/categories/'));
           
           return (
             <Link
               key={item.name}
               to={item.path}
-              className="mobile-nav-item"
+              className="mobile-nav-item touch-target"
             >
               <motion.div
-                whileTap={{ scale: 0.95 }}
-                className="flex flex-col items-center space-y-1"
+                whileTap={{ scale: 0.85 }}
+                className={`flex flex-col items-center justify-center space-y-1 ${
+                  isActive ? 'mobile-nav-active' : ''
+                }`}
               >
-                <Icon 
-                  className={`mobile-nav-icon ${
-                    isActive ? 'mobile-nav-active' : 'mobile-nav-text'
-                  }`}
-                />
+                <div className="relative">
+                  <Icon 
+                    className={`mobile-nav-icon ${
+                      isActive ? 'mobile-nav-active' : 'mobile-nav-text'
+                    }`}
+                  />
+                  {isActive && (
+                    <motion.div
+                      layoutId="mobile-nav-indicator"
+                      className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-blue-600 rounded-full"
+                    />
+                  )}
+                </div>
                 <span 
-                  className={`mobile-nav-text text-xs ${
-                    isActive ? 'mobile-nav-active' : ''
+                  className={`text-xs font-medium ${
+                    isActive ? 'mobile-nav-active' : 'mobile-nav-text'
                   }`}
                 >
                   {item.name}
